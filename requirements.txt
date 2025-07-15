@@ -1,0 +1,45 @@
+# AutoGen编程工作流系统依赖
+
+# AutoGen核心库
+autogen-agentchat>=0.4.0
+autogen-core>=0.4.0
+autogen-ext[openai]>=0.4.0
+
+# OpenAI API客户端
+openai>=1.0.0
+
+# 异步支持
+asyncio
+
+# 数据处理
+dataclasses
+
+# 类型提示
+typing-extensions
+
+# JSON处理
+json5
+
+# 正则表达式
+regex
+
+# 可选：Jupyter支持
+# jupyter
+# ipykernel
+
+# 可选：Web界面支持  
+# chainlit
+# streamlit
+
+# 可选：数据库支持
+# sqlalchemy
+# sqlite3
+
+# 可选：测试框架
+# pytest
+# pytest-asyncio
+
+# 可选：代码格式化
+# black
+# isort
+# flake8
