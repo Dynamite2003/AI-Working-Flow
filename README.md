@@ -4,9 +4,14 @@
 
 ## 🌟 特性
 
+### 多API支持
+- **OpenAI API**: 支持GPT-4o、GPT-4等模型
+- **Gemini API**: 支持Gemini Pro、Gemini Pro Vision等模型
+- **统一接口**: 无缝切换不同API提供商
+
 ### 基础工作流 (`autogen_programming_workflow.py`)
 - **Agent1 (CodeWriter)**: 专业代码编写专家
-- **Agent2 (CodeReviewer)**: 资深代码审阅专家  
+- **Agent2 (CodeReviewer)**: 资深代码审阅专家
 - **Agent3 (CodeOptimizer)**: 代码优化专家
 - **RoundRobinGroupChat**: 顺序执行的团队协作模式
 
@@ -20,28 +25,57 @@
 
 ## 🚀 快速开始
 
-### 1. 安装依赖
+### 1. 创建环境配置
 
 ```bash
-pip install autogen-agentchat autogen-ext[openai]
+make setup-env
 ```
 
-### 2. 设置环境变量
+这会创建`.env`文件，然后编辑它设置您的API密钥：
+
+#### 使用OpenAI API：
+```bash
+# 编辑.env文件
+API_PROVIDER=openai
+OPENAI_API_KEY=your-openai-api-key-here
+DEFAULT_MODEL=gpt-4o
+```
+
+#### 使用Gemini API：
+```bash
+# 编辑.env文件
+API_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-api-key-here
+DEFAULT_MODEL=gemini-pro
+```
+
+### 2. 安装依赖
 
 ```bash
-export OPENAI_API_KEY="your-openai-api-key"
+make install
 ```
 
-### 3. 运行基础工作流
+### 3. 验证配置
 
-```python
-python autogen_programming_workflow.py
+```bash
+make check-env
 ```
 
-### 4. 运行高级工作流
+#### 如果使用Gemini API，额外运行：
+```bash
+make test-gemini
+```
 
-```python
-python autogen_advanced_programming_workflow.py
+### 4. 运行基础工作流
+
+```bash
+make run-basic
+```
+
+### 5. 运行高级工作流
+
+```bash
+make run-advanced
 ```
 
 ## 📋 使用示例
@@ -51,21 +85,24 @@ python autogen_advanced_programming_workflow.py
 ```python
 import asyncio
 from autogen_programming_workflow import ProgrammingWorkflow, ProgrammingTask
+from env_config import get_config
 
 async def main():
-    workflow = ProgrammingWorkflow(model_name="gpt-4o")
-    
+    # 加载配置
+    config = get_config()
+    workflow = ProgrammingWorkflow(config)
+
     task = ProgrammingTask(
         description="创建一个Python类来管理图书馆系统",
         requirements=[
             "支持图书的增删改查操作",
-            "实现图书借阅和归还功能", 
+            "实现图书借阅和归还功能",
             "支持用户管理",
             "包含数据验证和异常处理"
         ],
         language="python"
     )
-    
+
     await workflow.run_programming_task(task)
     await workflow.close()
 
@@ -77,9 +114,11 @@ asyncio.run(main())
 ```python
 import asyncio
 from autogen_advanced_programming_workflow import AdvancedProgrammingWorkflow, AdvancedProgrammingTask
+from env_config import get_config
 
 async def main():
-    workflow = AdvancedProgrammingWorkflow(model_name="gpt-4o")
+    config = get_config()
+    workflow = AdvancedProgrammingWorkflow(config)
     
     task = AdvancedProgrammingTask(
         description="开发一个电商支付系统",
@@ -136,19 +175,86 @@ graph TD
 
 ## 🔧 配置选项
 
-### 模型配置
-- 支持OpenAI GPT-4o、GPT-4等模型
-- 可自定义API密钥和模型参数
+### 环境配置文件 (.env)
+系统使用`.env`文件管理所有配置，支持以下配置项：
 
-### 终止条件
-- 文本关键词终止
-- 最大消息数限制
-- 组合条件支持
+#### API提供商配置
+```bash
+API_PROVIDER=openai                        # API提供商 (openai/gemini)
+```
 
-### Agent配置
-- 自定义系统消息
-- 专业角色定义
-- 消息过滤配置
+#### OpenAI API 配置
+```bash
+OPENAI_API_KEY=your-openai-api-key-here    # OpenAI API密钥
+OPENAI_BASE_URL=https://api.openai.com/v1  # 可选
+DEFAULT_MODEL=gpt-4o                       # 默认模型
+MODEL_TEMPERATURE=0.1                      # 温度参数
+REQUEST_TIMEOUT=60                         # 请求超时
+```
+
+#### Gemini API 配置
+```bash
+GEMINI_API_KEY=your-gemini-api-key-here    # Gemini API密钥
+DEFAULT_MODEL=gemini-pro                   # 默认模型
+MODEL_TEMPERATURE=0.1                      # 温度参数
+REQUEST_TIMEOUT=60                         # 请求超时
+```
+
+#### 工作流配置
+```bash
+BASIC_WORKFLOW_MAX_MESSAGES=15             # 基础工作流最大消息数
+ADVANCED_WORKFLOW_MAX_MESSAGES=25          # 高级工作流最大消息数
+ENABLE_PARALLEL_PROCESSING=true            # 启用并行处理
+ENABLE_MESSAGE_FILTERING=true              # 启用消息过滤
+ENABLE_SECURITY_ANALYSIS=true              # 启用安全分析
+```
+
+#### 日志配置
+```bash
+LOG_LEVEL=INFO                             # 日志级别
+VERBOSE_LOGGING=false                      # 详细日志
+ENABLE_COLOR_OUTPUT=true                   # 彩色输出
+```
+
+#### 项目配置
+```bash
+PROJECT_NAME=AutoGen Programming Workflow  # 项目名称
+DEFAULT_LANGUAGE=python                    # 默认编程语言
+DEBUG_MODE=false                           # 调试模式
+SAVE_INTERMEDIATE_RESULTS=false            # 保存中间结果
+RESULTS_DIR=results                        # 结果保存目录
+```
+
+### 配置管理
+- 自动从`.env`文件加载配置
+- 支持环境变量覆盖
+- 配置验证和错误提示
+- 类型自动转换
+
+## 🔑 API密钥获取指南
+
+### OpenAI API
+1. 访问 [OpenAI Platform](https://platform.openai.com/api-keys)
+2. 登录或注册账户
+3. 创建新的API密钥
+4. 复制密钥到`.env`文件
+
+### Gemini API
+1. 访问 [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. 使用Google账户登录
+3. 点击"Create API Key"
+4. 复制密钥到`.env`文件
+
+### 支持的模型
+
+#### OpenAI模型
+- `gpt-4o` - 最新的GPT-4 Omni模型
+- `gpt-4` - GPT-4标准模型
+- `gpt-3.5-turbo` - GPT-3.5 Turbo模型
+
+#### Gemini模型
+- `gemini-pro` - Gemini Pro文本模型
+- `gemini-pro-vision` - Gemini Pro多模态模型
 
 ## 📊 工作流程详解
 

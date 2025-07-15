@@ -8,8 +8,11 @@ help:
 	@echo "====================="
 	@echo ""
 	@echo "可用命令:"
+	@echo "  setup-env    - 创建.env配置文件"
+	@echo "  setup-gemini - 快速设置Gemini API"
 	@echo "  install      - 安装依赖包"
 	@echo "  test         - 运行测试"
+	@echo "  test-gemini  - 测试Gemini API配置"
 	@echo "  run-basic    - 运行基础工作流"
 	@echo "  run-advanced - 运行高级工作流"
 	@echo "  run-demo     - 运行演示模式"
@@ -18,8 +21,25 @@ help:
 	@echo "  lint         - 代码检查"
 	@echo "  clean        - 清理临时文件"
 	@echo ""
-	@echo "使用前请确保设置OPENAI_API_KEY环境变量:"
-	@echo "  export OPENAI_API_KEY='your-api-key'"
+	@echo "首次使用:"
+	@echo "  OpenAI用户: make setup-env"
+	@echo "  Gemini用户: make setup-gemini"
+
+# 创建环境配置文件
+setup-env:
+	@echo "🔧 创建环境配置文件..."
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "✅ .env文件已创建，请编辑并设置您的API密钥"; \
+		echo "📝 请编辑.env文件中的OPENAI_API_KEY"; \
+	else \
+		echo "⚠️  .env文件已存在"; \
+	fi
+
+# 快速设置Gemini API
+setup-gemini:
+	@echo "🚀 快速设置Gemini API..."
+	python setup_gemini.py
 
 # 安装依赖
 install:
@@ -32,6 +52,11 @@ test:
 	@echo "🧪 运行测试..."
 	python test_workflow.py
 	@echo "✅ 测试完成"
+
+# 测试Gemini API配置
+test-gemini:
+	@echo "🧪 测试Gemini API配置..."
+	python test_gemini_config.py
 
 # 运行基础工作流
 run-basic:
@@ -89,13 +114,12 @@ clean:
 # 检查环境
 check-env:
 	@echo "🔧 检查环境配置..."
-	@if [ -z "$$OPENAI_API_KEY" ]; then \
-		echo "❌ OPENAI_API_KEY环境变量未设置"; \
-		echo "请运行: export OPENAI_API_KEY='your-api-key'"; \
+	@if [ ! -f .env ]; then \
+		echo "❌ .env文件不存在"; \
+		echo "请运行: make setup-env"; \
 		exit 1; \
-	else \
-		echo "✅ OPENAI_API_KEY已设置"; \
 	fi
+	@python -c "from env_config import get_config; config = get_config(); errors = config.validate_config(); print('✅ 配置验证通过') if not errors else [print(f'❌ {error}') for error in errors] or exit(1)"
 	@python -c "import sys; print(f'Python版本: {sys.version}')"
 
 # 安装开发依赖
@@ -105,9 +129,9 @@ install-dev:
 	@echo "✅ 开发依赖安装完成"
 
 # 完整设置
-setup: install install-dev
+setup: setup-env install install-dev
 	@echo "🚀 完整环境设置完成"
-	@echo "请设置API密钥: export OPENAI_API_KEY='your-api-key'"
+	@echo "请编辑.env文件设置您的API密钥"
 
 # 运行所有检查
 check-all: check-env lint test

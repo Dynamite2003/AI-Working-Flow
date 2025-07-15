@@ -12,6 +12,7 @@ AutoGen高级编程工作流 - 使用GraphFlow实现复杂的多Agent协作
 
 import asyncio
 import json
+import logging
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 
@@ -19,7 +20,9 @@ from autogen_agentchat.agents import AssistantAgent, MessageFilterAgent, Message
 from autogen_agentchat.teams import DiGraphBuilder, GraphFlow
 from autogen_agentchat.conditions import TextMentionTermination, MaxMessageTermination
 from autogen_agentchat.ui import Console
-from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+from env_config import get_config, EnvironmentConfig
+from gemini_client import create_model_client
 
 
 @dataclass
@@ -35,13 +38,22 @@ class AdvancedProgrammingTask:
 
 class AdvancedProgrammingWorkflow:
     """AutoGen高级编程工作流主类"""
-    
-    def __init__(self, model_name: str = "gpt-4o", api_key: Optional[str] = None):
+
+    def __init__(self, config: Optional[EnvironmentConfig] = None):
         """初始化高级编程工作流"""
-        self.model_client = OpenAIChatCompletionClient(
-            model=model_name,
-            api_key=api_key
-        )
+        # 加载配置
+        self.config = config or get_config()
+
+        # 验证配置
+        errors = self.config.validate_config()
+        if errors:
+            raise ValueError(f"配置错误: {'; '.join(errors)}")
+
+        # 创建模型客户端
+        self.model_client = create_model_client(self.config.api)
+
+        # 设置日志
+        self.logger = logging.getLogger(__name__)
         
         # 创建所有Agent
         self.agents = self._create_all_agents()

@@ -12,14 +12,25 @@ from typing import List
 
 from autogen_programming_workflow import ProgrammingWorkflow, ProgrammingTask
 from autogen_advanced_programming_workflow import AdvancedProgrammingWorkflow, AdvancedProgrammingTask
+from env_config import get_config
 
 
-def check_api_key():
-    """检查API密钥是否设置"""
-    if not os.getenv("OPENAI_API_KEY"):
-        print("❌ 错误: 未找到OPENAI_API_KEY环境变量")
-        print("请设置您的OpenAI API密钥:")
-        print("export OPENAI_API_KEY='your-api-key-here'")
+def check_config():
+    """检查配置是否正确"""
+    try:
+        config = get_config()
+        errors = config.validate_config()
+        if errors:
+            print("❌ 配置错误:")
+            for error in errors:
+                print(f"  - {error}")
+            print("\n请检查.env文件或环境变量设置")
+            print("可以复制.env.example为.env并填入正确的配置")
+            sys.exit(1)
+        return config
+    except Exception as e:
+        print(f"❌ 加载配置失败: {e}")
+        print("请确保.env文件存在且格式正确")
         sys.exit(1)
 
 
@@ -74,43 +85,43 @@ def get_performance_requirements() -> List[str]:
     return requirements
 
 
-async def run_basic_workflow():
+async def run_basic_workflow(config):
     """运行基础工作流"""
     print("🔥 基础编程工作流")
     print("=" * 50)
-    
+
     # 获取任务信息
     description = get_user_input("请输入项目描述: ")
-    language = get_user_input("请输入编程语言 (默认: python): ", required=False) or "python"
+    language = get_user_input(f"请输入编程语言 (默认: {config.project.default_language}): ", required=False) or config.project.default_language
     requirements = get_requirements()
-    
+
     if not requirements:
         print("❌ 至少需要一个项目需求")
         return
-    
+
     # 创建任务
     task = ProgrammingTask(
         description=description,
         requirements=requirements,
         language=language
     )
-    
+
     # 运行工作流
-    workflow = ProgrammingWorkflow()
+    workflow = ProgrammingWorkflow(config)
     try:
         await workflow.run_programming_task(task)
     finally:
         await workflow.close()
 
 
-async def run_advanced_workflow():
+async def run_advanced_workflow(config):
     """运行高级工作流"""
     print("🚀 高级编程工作流")
     print("=" * 50)
-    
+
     # 获取基本信息
     description = get_user_input("请输入项目描述: ")
-    language = get_user_input("请输入编程语言 (默认: python): ", required=False) or "python"
+    language = get_user_input(f"请输入编程语言 (默认: {config.project.default_language}): ", required=False) or config.project.default_language
     
     # 获取复杂度级别
     print("\n复杂度级别:")
@@ -143,14 +154,14 @@ async def run_advanced_workflow():
     )
     
     # 运行高级工作流
-    workflow = AdvancedProgrammingWorkflow()
+    workflow = AdvancedProgrammingWorkflow(config)
     try:
         await workflow.run_advanced_task(task)
     finally:
         await workflow.close()
 
 
-async def run_quick_demo():
+async def run_quick_demo(config):
     """运行快速演示"""
     print("⚡ 快速演示模式")
     print("=" * 50)
@@ -211,13 +222,13 @@ async def run_quick_demo():
     demo = demo_tasks[choice]
     
     if demo["type"] == "basic":
-        workflow = ProgrammingWorkflow()
+        workflow = ProgrammingWorkflow(config)
         try:
             await workflow.run_programming_task(demo["task"])
         finally:
             await workflow.close()
     else:
-        workflow = AdvancedProgrammingWorkflow()
+        workflow = AdvancedProgrammingWorkflow(config)
         try:
             await workflow.run_advanced_task(demo["task"])
         finally:
@@ -248,18 +259,18 @@ def main():
     
     print("🌟 AutoGen编程工作流系统")
     print("=" * 60)
-    
-    # 检查API密钥
-    check_api_key()
-    
+
+    # 检查配置
+    config = check_config()
+
     # 根据模式运行相应的工作流
     try:
         if args.mode == "basic":
-            asyncio.run(run_basic_workflow())
+            asyncio.run(run_basic_workflow(config))
         elif args.mode == "advanced":
-            asyncio.run(run_advanced_workflow())
+            asyncio.run(run_advanced_workflow(config))
         elif args.mode == "demo":
-            asyncio.run(run_quick_demo())
+            asyncio.run(run_quick_demo(config))
     except KeyboardInterrupt:
         print("\n\n⏹️  用户中断，程序退出")
     except Exception as e:

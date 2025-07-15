@@ -18,9 +18,9 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.teams import RoundRobinGroupChat
 from autogen_agentchat.conditions import TextMentionTermination, MaxMessageTermination
 from autogen_agentchat.ui import Console
-from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 from env_config import get_config, EnvironmentConfig
+from gemini_client import create_model_client
 
 
 @dataclass
@@ -50,12 +50,7 @@ class ProgrammingWorkflow:
             raise ValueError(f"配置错误: {'; '.join(errors)}")
 
         # 创建模型客户端
-        self.model_client = OpenAIChatCompletionClient(
-            model=self.config.openai.model,
-            api_key=self.config.openai.api_key,
-            base_url=self.config.openai.base_url,
-            timeout=self.config.openai.timeout
-        )
+        self.model_client = create_model_client(self.config.api)
 
         # 设置日志
         self.logger = logging.getLogger(__name__)
@@ -209,7 +204,8 @@ class ProgrammingWorkflow:
         print("=" * 60)
         print(f"任务：{task.description}")
         print(f"语言：{task.language}")
-        print(f"模型：{self.config.openai.model}")
+        print(f"API提供商：{self.config.api.provider}")
+        print(f"模型：{self.config.api.model}")
         print("=" * 60)
         
         # 运行团队协作
@@ -250,8 +246,9 @@ class ProgrammingWorkflow:
             },
             "task_description": task_description,
             "config": {
-                "model": self.config.openai.model,
-                "temperature": self.config.openai.temperature,
+                "provider": self.config.api.provider,
+                "model": self.config.api.model,
+                "temperature": self.config.api.temperature,
                 "max_messages": self.config.workflow.basic_max_messages
             }
         }

@@ -97,11 +97,12 @@ def get_env_value(key: str, default: Any = None, env_vars: Optional[Dict[str, st
 
 
 @dataclass
-class OpenAIConfig:
-    """OpenAI API配置"""
-    api_key: str
+class APIConfig:
+    """API配置（支持OpenAI和Gemini）"""
+    provider: str = "openai"  # openai, gemini
+    api_key: str = ""
     base_url: Optional[str] = None
-    org_id: Optional[str] = None
+    org_id: Optional[str] = None  # 仅OpenAI使用
     model: str = "gpt-4o"
     temperature: float = 0.1
     max_tokens: Optional[int] = None
@@ -169,7 +170,7 @@ class EnvironmentConfig:
         self.env_vars = load_env_file(env_file)
         
         # 加载各个配置模块
-        self.openai = self._load_openai_config()
+        self.api = self._load_api_config()
         self.workflow = self._load_workflow_config()
         self.logging = self._load_logging_config()
         self.project = self._load_project_config()
@@ -182,18 +183,32 @@ class EnvironmentConfig:
         # 创建必要的目录
         self._create_directories()
     
-    def _load_openai_config(self) -> OpenAIConfig:
-        """加载OpenAI配置"""
-        api_key = get_env_value("OPENAI_API_KEY", env_vars=self.env_vars)
-        
+    def _load_api_config(self) -> APIConfig:
+        """加载API配置（支持OpenAI和Gemini）"""
+        provider = get_env_value("API_PROVIDER", "openai", self.env_vars).lower()
+
+        # 根据提供商获取API密钥
+        if provider == "gemini":
+            api_key = get_env_value("GEMINI_API_KEY", env_vars=self.env_vars)
+            default_model = "gemini-pro"
+            base_url = get_env_value("GEMINI_BASE_URL", env_vars=self.env_vars)
+        else:  # openai
+            api_key = get_env_value("OPENAI_API_KEY", env_vars=self.env_vars)
+            default_model = "gpt-4o"
+            base_url = get_env_value("OPENAI_BASE_URL", env_vars=self.env_vars)
+
         if not api_key:
-            raise ValueError("OPENAI_API_KEY未设置，请在.env文件或环境变量中设置")
-        
-        return OpenAIConfig(
+            if provider == "gemini":
+                raise ValueError("GEMINI_API_KEY未设置，请在.env文件或环境变量中设置")
+            else:
+                raise ValueError("OPENAI_API_KEY未设置，请在.env文件或环境变量中设置")
+
+        return APIConfig(
+            provider=provider,
             api_key=api_key,
-            base_url=get_env_value("OPENAI_BASE_URL", env_vars=self.env_vars),
-            org_id=get_env_value("OPENAI_ORG_ID", env_vars=self.env_vars),
-            model=get_env_value("DEFAULT_MODEL", "gpt-4o", self.env_vars),
+            base_url=base_url,
+            org_id=get_env_value("OPENAI_ORG_ID", env_vars=self.env_vars) if provider == "openai" else None,
+            model=get_env_value("DEFAULT_MODEL", default_model, self.env_vars),
             temperature=get_env_value("MODEL_TEMPERATURE", 0.1, self.env_vars),
             max_tokens=get_env_value("MAX_TOKENS", env_vars=self.env_vars),
             timeout=get_env_value("REQUEST_TIMEOUT", 60, self.env_vars)
@@ -299,11 +314,14 @@ class EnvironmentConfig:
         """
         errors = []
         
-        # 验证OpenAI配置
-        if not self.openai.api_key:
-            errors.append("OPENAI_API_KEY未设置")
-        
-        if self.openai.temperature < 0 or self.openai.temperature > 2:
+        # 验证API配置
+        if not self.api.api_key:
+            if self.api.provider == "gemini":
+                errors.append("GEMINI_API_KEY未设置")
+            else:
+                errors.append("OPENAI_API_KEY未设置")
+
+        if self.api.temperature < 0 or self.api.temperature > 2:
             errors.append("MODEL_TEMPERATURE必须在0-2之间")
         
         # 验证工作流配置
@@ -324,8 +342,9 @@ class EnvironmentConfig:
         """打印配置摘要"""
         print(f"🔧 {self.project.name} v{self.project.version}")
         print("=" * 50)
-        print(f"模型: {self.openai.model}")
-        print(f"温度: {self.openai.temperature}")
+        print(f"API提供商: {self.api.provider}")
+        print(f"模型: {self.api.model}")
+        print(f"温度: {self.api.temperature}")
         print(f"默认语言: {self.project.default_language}")
         print(f"日志级别: {self.logging.level}")
         print(f"并行处理: {'启用' if self.workflow.enable_parallel_processing else '禁用'}")
