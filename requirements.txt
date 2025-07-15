@@ -8,6 +8,9 @@ autogen-ext[openai]>=0.4.0
 # OpenAI API客户端
 openai>=1.0.0
 
+# 环境变量管理
+python-dotenv>=1.0.0
+
 # 异步支持
 asyncio
 

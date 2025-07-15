@@ -10,6 +10,7 @@ Agent3: CodeOptimizerAgent - 根据前两个agent的输出重新优化代码
 import asyncio
 import json
 import re
+import logging
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 
@@ -18,6 +19,8 @@ from autogen_agentchat.teams import RoundRobinGroupChat
 from autogen_agentchat.conditions import TextMentionTermination, MaxMessageTermination
 from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+from env_config import get_config, EnvironmentConfig
 
 
 @dataclass
@@ -30,19 +33,32 @@ class ProgrammingTask:
 
 class ProgrammingWorkflow:
     """AutoGen编程工作流主类"""
-    
-    def __init__(self, model_name: str = "gpt-4o", api_key: Optional[str] = None):
+
+    def __init__(self, config: Optional[EnvironmentConfig] = None):
         """
         初始化编程工作流
-        
+
         Args:
-            model_name: 使用的模型名称
-            api_key: OpenAI API密钥，如果为None则从环境变量获取
+            config: 环境配置，如果为None则自动加载
         """
+        # 加载配置
+        self.config = config or get_config()
+
+        # 验证配置
+        errors = self.config.validate_config()
+        if errors:
+            raise ValueError(f"配置错误: {'; '.join(errors)}")
+
+        # 创建模型客户端
         self.model_client = OpenAIChatCompletionClient(
-            model=model_name,
-            api_key=api_key  # 如果为None，会自动从OPENAI_API_KEY环境变量获取
+            model=self.config.openai.model,
+            api_key=self.config.openai.api_key,
+            base_url=self.config.openai.base_url,
+            timeout=self.config.openai.timeout
         )
+
+        # 设置日志
+        self.logger = logging.getLogger(__name__)
         
         # 创建三个专门的Agent
         self.code_writer = self._create_code_writer_agent()
@@ -147,8 +163,10 @@ class ProgrammingWorkflow:
         """创建终止条件"""
         # 当优化完成或达到最大消息数时终止
         text_termination = TextMentionTermination("OPTIMIZATION_COMPLETE")
-        max_messages_termination = MaxMessageTermination(max_messages=15)
-        
+        max_messages_termination = MaxMessageTermination(
+            max_messages=self.config.workflow.basic_max_messages
+        )
+
         return text_termination | max_messages_termination
     
     def _create_team(self) -> RoundRobinGroupChat:
@@ -182,29 +200,86 @@ class ProgrammingWorkflow:
 开始工作！
 """
         
+        self.logger.info("启动AutoGen编程工作流")
+
+        if self.config.project.debug_mode:
+            self.config.print_config_summary()
+
         print("🚀 启动AutoGen编程工作流...")
         print("=" * 60)
         print(f"任务：{task.description}")
         print(f"语言：{task.language}")
+        print(f"模型：{self.config.openai.model}")
         print("=" * 60)
         
         # 运行团队协作
+        self.logger.info("开始团队协作")
         stream = self.team.run_stream(task=task_description)
         await Console(stream)
-        
+
+        # 保存中间结果（如果启用）
+        if self.config.project.save_intermediate_results:
+            self._save_results(task, task_description)
+
         print("\n" + "=" * 60)
         print("✅ 编程工作流完成！")
-    
+        self.logger.info("编程工作流完成")
+
+    def _save_results(self, task: ProgrammingTask, task_description: str):
+        """保存中间结果"""
+        import os
+        import json
+        from datetime import datetime
+
+        # 创建结果目录
+        results_dir = self.config.project.results_dir
+        os.makedirs(results_dir, exist_ok=True)
+
+        # 生成文件名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"programming_task_{timestamp}.json"
+        filepath = os.path.join(results_dir, filename)
+
+        # 保存任务信息
+        result_data = {
+            "timestamp": timestamp,
+            "task": {
+                "description": task.description,
+                "requirements": task.requirements,
+                "language": task.language
+            },
+            "task_description": task_description,
+            "config": {
+                "model": self.config.openai.model,
+                "temperature": self.config.openai.temperature,
+                "max_messages": self.config.workflow.basic_max_messages
+            }
+        }
+
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(result_data, f, ensure_ascii=False, indent=2)
+            self.logger.info(f"结果已保存到: {filepath}")
+        except Exception as e:
+            self.logger.error(f"保存结果失败: {e}")
+
     async def close(self):
         """关闭模型客户端连接"""
+        self.logger.info("关闭模型客户端连接")
         await self.model_client.close()
 
 
 async def main():
     """主函数 - 演示编程工作流的使用"""
-    
+
+    # 加载配置
+    config = get_config()
+
+    # 打印配置摘要
+    config.print_config_summary()
+
     # 创建编程工作流实例
-    workflow = ProgrammingWorkflow(model_name="gpt-4o")
+    workflow = ProgrammingWorkflow(config)
     
     try:
         # 定义编程任务
